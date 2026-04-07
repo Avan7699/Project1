@@ -52,6 +52,10 @@ struct FUnitStats
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "AttackPattern == EAttackPattern::Team"))
 	int32 CellCount = 5;
 
+	/** Minimum distance to keep from enemies — ranged/flying units retreat if closer than this */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MinSafeDistance = 450.f;
+
 	/** If true, stats are auto-configured from CharType + AttackPattern on BeginPlay */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Auto")
 	bool bUseAutoStats = true;

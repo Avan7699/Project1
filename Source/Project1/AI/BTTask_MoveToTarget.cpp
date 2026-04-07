@@ -29,6 +29,13 @@ EBTNodeResult::Type UBTTask_MoveToTarget::ExecuteTask(UBehaviorTreeComponent& Ow
 	AActor* Target = Cast<AActor>(BB->GetValueAsObject(TargetActorKey.SelectedKeyName));
 	if (!Target) return EBTNodeResult::Failed;
 
+	// If already in attack range, no need to move at all
+	if (Combat->IsInAttackRange(Target))
+	{
+		AIC->StopMovement();
+		return EBTNodeResult::Succeeded;
+	}
+
 	// Use the unit's attack range as the acceptable radius so it stops when in range
 	float StopDistance = FMath::Max(Combat->Stats.AttackRange - 50.f, AcceptableRadius);
 	AIC->MoveToActor(Target, StopDistance);

@@ -56,6 +56,9 @@ void ABaseProjectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
     bool bFromSweep, const FHitResult& SweepResult)
 {
+    // Not initialized yet — owner hasn't been set, ignore all overlaps
+    if (!InstigatorUnit) return;
+
     // Ignore self and owner
     if (!OtherActor || OtherActor == this || OtherActor == InstigatorUnit) return;
 

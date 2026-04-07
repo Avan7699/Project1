@@ -373,42 +373,44 @@ bool UCombatComponent::Attack()
         EffectiveDamage = CellDamage * CellsAlive;
     }
 
-    switch (Stats.AttackPattern)
+    // Ranged and Flying units deal damage via projectile — skip instant damage
+    bool bUsesProjectile = (Stats.CharType != ECharType::Melee && ProjectileClass);
+
+    if (!bUsesProjectile)
     {
-    case EAttackPattern::SingleTarget:
-        DealDamageToTarget(CurrentTarget);
-        break;
-
-    case EAttackPattern::Team:
-        // All cells attack the current target — damage stacks
-        DealDamageToTarget(CurrentTarget);
-        break;
-
-    case EAttackPattern::AoE:
+        // Melee: apply damage instantly
+        switch (Stats.AttackPattern)
         {
-            TArray<AActor*> Enemies = GetEnemiesInRadius(CurrentTarget->GetActorLocation(), Stats.AoERadius);
-            for (AActor* Enemy : Enemies)
-            {
-                DealDamageToTarget(Enemy);
-            }
-            if (GEngine)
-            {
-                GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange,
-                    FString::Printf(TEXT("%s [AoE] hit %d enemies for %.0f each"),
-                        *Owner->GetName(), Enemies.Num(), EffectiveDamage));
-            }
-        }
-        break;
-    }
+        case EAttackPattern::SingleTarget:
+            DealDamageToTarget(CurrentTarget);
+            break;
 
-    // Fire projectile for ranged/flying units
-    if (Stats.CharType != ECharType::Melee && ProjectileClass)
-    {
-        FireProjectile();
+        case EAttackPattern::Team:
+            DealDamageToTarget(CurrentTarget);
+            break;
+
+        case EAttackPattern::AoE:
+            {
+                TArray<AActor*> Enemies = GetEnemiesInRadius(CurrentTarget->GetActorLocation(), Stats.AoERadius);
+                for (AActor* Enemy : Enemies)
+                {
+                    DealDamageToTarget(Enemy);
+                }
+                if (GEngine)
+                {
+                    GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange,
+                        FString::Printf(TEXT("%s [AoE] hit %d enemies for %.0f each"),
+                            *Owner->GetName(), Enemies.Num(), EffectiveDamage));
+                }
+            }
+            break;
+        }
+        StartCooldown();
     }
     else
     {
-        StartCooldown();
+        // Ranged/Flying: fire projectile — damage applied on projectile overlap
+        FireProjectile();
     }
 
     return true;
@@ -441,7 +443,15 @@ void UCombatComponent::DealDamageToTarget(AActor* Target)
 
 void UCombatComponent::FireProjectile()
 {
-    if (!bCanAttack || bIsDead || !CurrentTarget || !ProjectileClass) return;
+    if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Cyan, TEXT("[FireProjectile] Called"));
+
+    if (!bCanAttack || bIsDead || !CurrentTarget || !ProjectileClass)
+    {
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red,
+            FString::Printf(TEXT("[FireProjectile] EARLY EXIT — CanAttack:%d Dead:%d HasTarget:%d HasClass:%d"),
+                bCanAttack, bIsDead, CurrentTarget != nullptr, ProjectileClass != nullptr));
+        return;
+    }
 
     AActor* Owner = GetOwner();
     if (!Owner) return;
@@ -460,6 +470,7 @@ void UCombatComponent::FireProjectile()
 
     if (SpawnedActor)
     {
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("[FireProjectile] Projectile SPAWNED OK"));
         ABaseProjectile* Projectile = Cast<ABaseProjectile>(SpawnedActor);
         if (Projectile)
         {
@@ -470,6 +481,14 @@ void UCombatComponent::FireProjectile()
             }
             Projectile->SetOwnerUnit(Owner, DamageOutput);
         }
+        else
+        {
+            if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("[FireProjectile] Cast to ABaseProjectile FAILED — wrong parent class?"));
+        }
+    }
+    else
+    {
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("[FireProjectile] SpawnActor FAILED — projectile not spawned"));
     }
 
     StartCooldown();
