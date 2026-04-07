@@ -65,6 +65,10 @@ EBTNodeResult::Type UBTTask_Retreat::ExecuteTask(UBehaviorTreeComponent& OwnerCo
     // No enemy nearby or already at safe distance — skip retreat
     if (!NearestEnemy || NearestDist >= SafeDist) return EBTNodeResult::Failed;
 
+    // Only retreat from Melee units — ranged vs ranged/flying should stand and shoot
+    UCombatComponent* EnemyCombat = NearestEnemy->FindComponentByClass<UCombatComponent>();
+    if (!EnemyCombat || EnemyCombat->Stats.CharType != ECharType::Melee) return EBTNodeResult::Failed;
+
     if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow,
         FString::Printf(TEXT("%s RETREATING — enemy %.0f units away (min: %.0f)"),
             *Pawn->GetName(), NearestDist, SafeDist));
@@ -104,6 +108,15 @@ void UBTTask_Retreat::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMem
     AActor* NearestEnemy = FindNearestEnemy(Pawn, Combat, NearestDist);
 
     float SafeDist = Combat->Stats.MinSafeDistance;
+
+    // If nearest enemy is not Melee, no need to retreat — stop
+    UCombatComponent* EnemyCombat = NearestEnemy ? NearestEnemy->FindComponentByClass<UCombatComponent>() : nullptr;
+    if (!EnemyCombat || EnemyCombat->Stats.CharType != ECharType::Melee)
+    {
+        AIC->StopMovement();
+        FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
+        return;
+    }
 
     // Safe — stop retreating
     if (!NearestEnemy || NearestDist >= SafeDist)

@@ -29,6 +29,14 @@ EBTNodeResult::Type UBTTask_MoveToTarget::ExecuteTask(UBehaviorTreeComponent& Ow
 	AActor* Target = Cast<AActor>(BB->GetValueAsObject(TargetActorKey.SelectedKeyName));
 	if (!Target) return EBTNodeResult::Failed;
 
+	// Ranged and Flying units never chase — they hold position and shoot from range
+	// Only Melee units actively move toward the enemy
+	if (Combat->Stats.CharType != ECharType::Melee)
+	{
+		AIC->StopMovement();
+		return EBTNodeResult::Succeeded;
+	}
+
 	// If already in attack range, no need to move at all
 	if (Combat->IsInAttackRange(Target))
 	{
@@ -39,6 +47,10 @@ EBTNodeResult::Type UBTTask_MoveToTarget::ExecuteTask(UBehaviorTreeComponent& Ow
 	// Use the unit's attack range as the acceptable radius so it stops when in range
 	float StopDistance = FMath::Max(Combat->Stats.AttackRange - 50.f, AcceptableRadius);
 	AIC->MoveToActor(Target, StopDistance);
+
+	// Record where the target was when we issued this command
+	FMoveToTargetMemory* Memory = reinterpret_cast<FMoveToTargetMemory*>(NodeMemory);
+	Memory->LastIssuedTargetLocation = Target->GetActorLocation();
 
 	return EBTNodeResult::InProgress;
 }
@@ -94,7 +106,15 @@ void UBTTask_MoveToTarget::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* No
 		return;
 	}
 
-	// Re-issue move command to follow a moving target
-	float StopDistance = FMath::Max(Combat->Stats.AttackRange - 50.f, AcceptableRadius);
-	AIC->MoveToActor(Target, StopDistance);
+	// Only re-issue MoveToActor if the target has moved significantly since the last command.
+	// Calling MoveToActor every tick cancels the current path and restarts pathfinding,
+	// which prevents the unit from actually making progress toward the target.
+	FMoveToTargetMemory* Memory = reinterpret_cast<FMoveToTargetMemory*>(NodeMemory);
+	float TargetMovedDist = FVector::Dist(Target->GetActorLocation(), Memory->LastIssuedTargetLocation);
+	if (TargetMovedDist >= ReMoveThreshold)
+	{
+		float StopDistance = FMath::Max(Combat->Stats.AttackRange - 50.f, AcceptableRadius);
+		AIC->MoveToActor(Target, StopDistance);
+		Memory->LastIssuedTargetLocation = Target->GetActorLocation();
+	}
 }
