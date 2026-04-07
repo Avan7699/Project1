@@ -31,6 +31,7 @@ void AMyGameModeBase::BeginPlay()
 
 void AMyGameModeBase::OnUnitDead()
 {
+    
     if (!bBattleOver)
     {
         IsBattleOver();

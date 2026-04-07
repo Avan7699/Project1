@@ -9,6 +9,28 @@
 /**
  * 
  */
+
+USTRUCT(BlueprintType)
+struct FEnemySpawnInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<ACharacter> EnemyClass;
+
+	UPROPERTY(EditAnywhere)
+	FVector SpawnLocation;
+};
+
+USTRUCT(BlueprintType)
+struct FLevelData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere)
+	TArray<FEnemySpawnInfo> Enemies;
+};
+
 UCLASS()
 class PROJECT1_API AMyGameModeBase : public AGameModeBase
 {
@@ -24,6 +46,10 @@ public:
 	
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<UUserWidget> ResultWidgetClass;
+	
+	UPROPERTY(EditAnywhere, Category = "Levels")
+	TArray<FLevelData> Levels;
+	
 private:
 	bool bBattleOver = false;
 	
